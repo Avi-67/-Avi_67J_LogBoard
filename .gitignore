@@ -1,6 +1,7 @@
 *
 !*/
 !lib/*
+!lib/*/*
 !src/*.cpp
 !test/*
 test_*.cpp
