@@ -1,0 +1,8 @@
+*
+!lib/*
+!src/*.cpp
+!test/*
+test_*.cpp
+!.gitignore
+!platformio.ini
+!README.md
