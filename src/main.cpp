@@ -65,7 +65,7 @@ IRAM_ATTR void logging(void *parameters)
 
 TaskHandle_t taskHandle[2];
 
-void testTask(void *pvParameters)
+void sendTask(void *pvParameters)
 {
   while (1)
   {
@@ -163,8 +163,8 @@ void setup()
 
   // Core0でタスク起動
   xTaskCreatePinnedToCore(
-      testTask,
-      "testTask1",
+      sendTask,
+      "sendTask1",
       8192,
       NULL,
       1,
