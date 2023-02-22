@@ -49,6 +49,10 @@ char receive;
 // Serial2で使う
 bool exitLoop = false;
 
+// Serial2を送るときに使う
+bool sendFlag = false;
+char sendChar = 'r';
+
 IRAM_ATTR void logging(void *parameters)
 {
   portTickType xLastWakeTime = xTaskGetTickCount();
@@ -56,6 +60,30 @@ IRAM_ATTR void logging(void *parameters)
   {
     checker++;
     vTaskDelayUntil(&xLastWakeTime, loggingPeriod2 / portTICK_PERIOD_MS); // 1ms = 1000Hz
+  }
+}
+
+TaskHandle_t taskHandle[2];
+
+void testTask(void *pvParameters)
+{
+  while (1)
+  {
+    if (sendFlag)
+    {
+      Serial.print(xPortGetCoreID());
+      Serial2.write(sendChar);
+      Serial.println("test");
+      if (Serial2.available() > 0)
+      {
+        char a = Serial2.read();
+        if (a == sendChar)
+        {
+          Serial.println("return text");
+          sendFlag = false;
+        }
+      }
+    }
   }
 }
 
@@ -133,6 +161,16 @@ void setup()
   // logging関数を起動
   xTaskCreateUniversal(logging, "logging", 8192, NULL, 1, &xlogHandle, PRO_CPU_NUM);
 
+  // Core0でタスク起動
+  xTaskCreatePinnedToCore(
+      testTask,
+      "testTask1",
+      8192,
+      NULL,
+      1,
+      &taskHandle[0],
+      0);
+
   SPIFlashLatestAddress = flash1.setFlashAddress();
   Serial.printf("SPIFlashLatestAddress: %d\n", SPIFlashLatestAddress);
   Serial2.write(COMMANDFINISHSETUP); // 'r'
@@ -144,15 +182,20 @@ void loop()
   {
     if (Serial2.read() == COMMANDPREPARATION) // 'p'
     {
-      Serial2.write(COMMANDPREPARATION);  // 'p'
+      // Serial2.write(COMMANDPREPARATION);  // 'p'
+      sendFlag = true;
+      sendChar = COMMANDPREPARATION;
+
       Serial.println("Preparation mode"); // 1
       while (1)
       {
         receive = Serial2.read();
         switch (receive)
         {
-        case COMMANDLOG:                  // 'l'
-          Serial2.write(COMMANDLOG);      // 'l'
+        case COMMANDLOG: // 'l'
+          // Serial2.write(COMMANDLOG);      // 'l'
+          sendFlag = true;
+          sendChar = COMMANDLOG;
           Serial.println("Logging mode"); // 1
           while (1)
           {
@@ -163,7 +206,9 @@ void loop()
             }
             if (Serial2.read() == COMMANDSTOP) // 's'
             {
-              Serial2.write(COMMANDSTOP); // 's'
+              // Serial2.write(COMMANDSTOP); // 's'
+              sendFlag = true;
+              sendChar = COMMANDSTOP;
               Serial.println("Stop logging");
               exitLoop = true;
               break;
@@ -172,11 +217,15 @@ void loop()
           Serial.write("Done Recorded:");
           Serial.write(timer.Gettime_record());
           break;
-        case COMMANDDELETE:             // 'd'
-          Serial2.write(COMMANDDELETE); // 'd'
+        case COMMANDDELETE: // 'd'
+          // Serial2.write(COMMANDDELETE); // 'd'
+          sendFlag = true;
+          sendChar = COMMANDDELETE;
           Serial.println("Delete mode");
           flash1.erase();
-          Serial2.write(COMMANDDELETEDONE); // 'f'
+          // Serial2.write(COMMANDDELETEDONE); // 'f'
+          sendFlag = true;
+          sendChar = COMMANDDELETEDONE;
           SPIFlashLatestAddress = 0x000;
           exitLoop = true;
           break;
@@ -185,9 +234,14 @@ void loop()
         default:
           if ('a' <= receive && receive <= 'z')
           {
-            Serial2.println(receive);                // 1
-            Serial.println("Exit Preparation mode"); // 1
-            exitLoop = true;
+            if (receive != 'j')
+            {
+              // Serial2.write(receive);                // 1
+              sendFlag = true;
+              sendChar = receive;
+              Serial.println("Exit Preparation mode"); // 1
+              exitLoop = true;
+            }
           }
           break;
         }
