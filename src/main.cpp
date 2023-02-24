@@ -84,6 +84,7 @@ void sendTask(void *pvParameters)
         }
       }
     }
+    delay(1);
   }
 }
 
