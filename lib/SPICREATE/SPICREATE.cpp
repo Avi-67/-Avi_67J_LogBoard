@@ -37,14 +37,6 @@ bool SPICreate::begin(uint8_t spi_bus, int8_t sck, int8_t miso, int8_t mosi, uin
 
     host = (spi_bus == HSPI) ? HSPI_HOST : VSPI_HOST;
     dma_chan = 1;
-    if (spi_bus == VSPI)
-    {
-        dma_chan = 1;
-    }
-    if (spi_bus == HSPI)
-    {
-        dma_chan = 2;
-    }
     esp_err_t e = spi_bus_initialize(host, &bus_cfg, dma_chan);
     if (e != ESP_OK)
     {

@@ -1,256 +1,151 @@
-#include <Arduino.h>
-#include <SPICREATE.h> // 変更済みのものを使用
-#include <S25FL512S.h>
-#include <H3LIS331.h>
-#include <ICM20948_beta.h>
-#include <LPS25HB.h>
-#include <LogBoard67.h>
+//----------------------------------------------------------------
+//----------------------------------------------------------------
+//----------------------------------------------------------------
+//----------------------------------------------------------------
+//----------------------------------------------------------------
+//----------------------------------------------------------------
+// DO NOT WRITE ERASE CODE HERE
+// DO NOT WRITE ERASE CODE HERE
+// DO NOT WRITE ERASE CODE HERE
+// DO NOT WRITE ERASE CODE HERE
+// DO NOT WRITE ERASE CODE HERE
+// DO NOT WRITE ERASE CODE HERE
+//----------------------------------------------------------------
+//----------------------------------------------------------------
+//----------------------------------------------------------------
+//----------------------------------------------------------------
+//----------------------------------------------------------------
+//----------------------------------------------------------------
 
-// ピンの定義
+#include <Arduino.h>
+#include <SPICREATE.h>
+#include <S25FL512S.h>
+// #include <H3LIS331.h>
+
 #define flashCS 27
 #define SCK1 33
 #define MISO1 25
 #define MOSI1 26
-#define SCK2 19
-#define MISO2 22
-#define MOSI2 23
-#define H3LIS331CS 32
-#define LPSCS 14
-#define ICMCS 13
-#define LEDPIN 18
+// #define H3LIS331CS 32
 
-// コマンドの定義
-#define COMMANDPREPARATION 'p'
-#define COMMANDDELETE 'd'
-#define COMMANDSTOP 's'
-#define COMMANDLOG 'l'
-#define COMMANDFINISHSETUP 'r'
-#define COMMANDDELETEDONE 'f'
+bool WhoAmI_Ok = false;
+uint8_t count = 0;
+uint8_t tx[256] = {};
+int16_t rx[3] = {};
+uint64_t gettime;
+uint64_t time;
+
+// int CountH3LIS331DataSetExistInBuff = 0;
+int CountH3LIS331DataSetExistInBuff_READ = 0;
+
+// uint8_t H3LIS331FlashBuff[256] = {0};
+
+// uint32_t H3LIS331FlashLatestAddress = 0x00;
+uint32_t H3LIS331FlashLatestAddress_READ = 0x100;
+
+#define SPIFREQ 100000
+
+// H3LIS331 H3lis331;
 
 SPICREATE::SPICreate SPIC1;
-SPICREATE::SPICreate SPIC2;
-
-LogBoard67 logboard67;
-
-#define SPIFREQ 5000000
-
-// #define loggingPeriod 2
-#define loggingPeriod2 1
-
-TimerHandle_t thand_test;
-xTaskHandle xlogHandle;
-
-// チェッカー(logging関数でこれを動かす)
-uint8_t checker = 0;
-
-// Serial2で受け取るchar型の変数
-char receive;
-
-// Serial2で使う
-bool exitLoop = false;
-
-// Serial2を送るときに使う
-bool sendFlag = false;
-char sendChar = 'r';
-
-IRAM_ATTR void logging(void *parameters)
-{
-  portTickType xLastWakeTime = xTaskGetTickCount();
-  for (;;)
-  {
-    checker++;
-    vTaskDelayUntil(&xLastWakeTime, loggingPeriod2 / portTICK_PERIOD_MS); // 1ms = 1000Hz
-  }
-}
-
-TaskHandle_t taskHandle[2];
-
-void sendTask(void *pvParameters)
-{
-  while (1)
-  {
-    if (sendFlag)
-    {
-      Serial.print(xPortGetCoreID());
-      Serial2.write(sendChar);
-      Serial.println("test");
-      if (Serial2.available() > 0)
-      {
-        char a = Serial2.read();
-        if (a == sendChar)
-        {
-          Serial.println("return text");
-          sendFlag = false;
-        }
-      }
-    }
-    delay(1);
-  }
-}
+Flash flash1;
 
 void setup()
 {
-  delay(1000);
-  digitalWrite(flashCS, HIGH);
-  digitalWrite(H3LIS331CS, HIGH);
-  digitalWrite(ICMCS, HIGH);
-  digitalWrite(LPSCS, HIGH);
+  // put your setup code here, to run once:
   Serial.begin(115200);
-  delay(1);
-  Serial.println("start Serial");
-  Serial2.begin(9600);
-  while (!Serial2)
-    ;
-  delay(1);
-  Serial.println("start Serial2");
   SPIC1.begin(VSPI, SCK1, MISO1, MOSI1);
-  SPIC2.begin(HSPI, SCK2, MISO2, MOSI2);
-  Serial.println("SPI1");
   flash1.begin(&SPIC1, flashCS, SPIFREQ);
-  Serial.println("flash1");
-  H3lis331.begin(&SPIC1, H3LIS331CS, SPIFREQ);
-  Serial.println("H3lis331");
-  icm20948.begin(&SPIC2, ICMCS, SPIFREQ);
-  Serial.println("icm20948");
-  Lps25.begin(&SPIC2, LPSCS, SPIFREQ);
-  Serial.println("Lps25hb");
-
-  micros();
-  Serial.println("Timer Start!");
-  Serial.write("Started At: ");
-  Serial.write(timer.start_time);
-
-  // WhoAmI
-  uint8_t a;
-
-  a = H3lis331.WhoAmI();
-  Serial.print("WhoAmI:");
-  Serial.println(a);
-  if (a == 0x32)
-  {
-    Serial.println("H3LIS331 is OK");
-  }
-  else
-  {
-    Serial.println("H3LIS331 is NG");
-  }
-
-  a = Lps25.WhoAmI();
-  Serial.print("WhoAmI:");
-  Serial.println(a);
-  if (a == 0b10111101)
-  {
-    Serial.println("LPS25HB is OK");
-  }
-  else
-  {
-    Serial.println("LPS25HB is NG");
-  }
-
-  a = icm20948.WhoAmI();
-  Serial.print("WhoAmI:");
-  Serial.println(a);
-  if (a == 0xEA)
-  {
-    Serial.println("ICM20948 is OK");
-  }
-  else
-  {
-    Serial.println("ICM20948 is NG");
-  }
-
-  // logging関数を起動
-  xTaskCreateUniversal(logging, "logging", 8192, NULL, 1, &xlogHandle, PRO_CPU_NUM);
-
-  // Core0でタスク起動
-  xTaskCreatePinnedToCore(
-      sendTask,
-      "sendTask1",
-      8192,
-      NULL,
-      1,
-      &taskHandle[0],
-      0);
-
-  SPIFlashLatestAddress = flash1.setFlashAddress();
-  Serial.printf("SPIFlashLatestAddress: %d\n", SPIFlashLatestAddress);
-  Serial2.write(COMMANDFINISHSETUP); // 'r'
 }
 
 void loop()
 {
-  while (Serial2.available())
+  // put your main code here, to run repeatedly:
+  // read Section
+  tx[256] = {};
+  rx[3] = {};
+  while (1)
   {
-    if (Serial2.read() == COMMANDPREPARATION) // 'p'
+    flash1.read(H3LIS331FlashLatestAddress_READ, tx);
+    if (tx[0] == 255)
     {
-      // Serial2.write(COMMANDPREPARATION);  // 'p'
-      sendFlag = true;
-      sendChar = COMMANDPREPARATION;
-
-      Serial.println("Preparation mode"); // 1
-      while (1)
+      Serial.println("No Data");
+      for (int i = 0; i < 5; i++)
       {
-        receive = Serial2.read();
-        switch (receive)
-        {
-        case COMMANDLOG: // 'l'
-          // Serial2.write(COMMANDLOG);      // 'l'
-          sendFlag = true;
-          sendChar = COMMANDLOG;
-          Serial.println("Logging mode"); // 1
-          while (1)
-          {
-            if (checker > 0)
-            {
-              checker = 0;
-              logboard67.RoutineWork();
-            }
-            if (Serial2.read() == COMMANDSTOP) // 's'
-            {
-              // Serial2.write(COMMANDSTOP); // 's'
-              sendFlag = true;
-              sendChar = COMMANDSTOP;
-              Serial.println("Stop logging");
-              exitLoop = true;
-              break;
-            }
-          }
-          Serial.write("Done Recorded:");
-          Serial.write(timer.Gettime_record());
-          break;
-        case COMMANDDELETE: // 'd'
-          // Serial2.write(COMMANDDELETE); // 'd'
-          sendFlag = true;
-          sendChar = COMMANDDELETE;
-          Serial.println("Delete mode");
-          flash1.erase();
-          // Serial2.write(COMMANDDELETEDONE); // 'f'
-          sendFlag = true;
-          sendChar = COMMANDDELETEDONE;
-          SPIFlashLatestAddress = 0x000;
-          exitLoop = true;
-          break;
-        case COMMANDPREPARATION: // 'p'
-          break;
-        default:
-          if ('a' <= receive && receive <= 'z')
-          {
-            if (receive != 'j')
-            {
-              // Serial2.write(receive);                // 1
-              sendFlag = true;
-              sendChar = receive;
-              Serial.println("Exit Preparation mode"); // 1
-              exitLoop = true;
-            }
-          }
-          break;
-        }
-        if (exitLoop)
-        {
-          exitLoop = false;
-          break;
-        }
+        Serial.print(".");
+        delay(1000);
+      }
+      Serial.print("\n");
+      H3LIS331FlashLatestAddress_READ = 0x00;
+      break;
+    }
+    for (int CountH3LIS331DataSetExistInBuff = 0; CountH3LIS331DataSetExistInBuff < 8; CountH3LIS331DataSetExistInBuff++)
+    {
+      // 時間をとる
+      // Serial.println("time");
+      time = tx[32 * CountH3LIS331DataSetExistInBuff + 0];
+      for (int i = 1; i < 4; i++)
+      {
+        gettime = tx[32 * CountH3LIS331DataSetExistInBuff + i];
+        time |= gettime << (8 * i);
+      }
+      Serial.print(time);
+      Serial.print(",");
+
+      // 加速度をとる 400g
+      //  Serial.println("acceleration");
+      rx[3] = {};
+      rx[0] = tx[32 * CountH3LIS331DataSetExistInBuff + 4];
+      rx[0] |= ((uint16_t)tx[32 * CountH3LIS331DataSetExistInBuff + 5]) << 8;
+      rx[1] = tx[32 * CountH3LIS331DataSetExistInBuff + 6];
+      rx[1] |= ((uint16_t)tx[32 * CountH3LIS331DataSetExistInBuff + 7]) << 8;
+      rx[2] = tx[32 * CountH3LIS331DataSetExistInBuff + 8];
+      rx[2] |= ((uint16_t)tx[32 * CountH3LIS331DataSetExistInBuff + 9]) << 8;
+      for (int i = 0; i < 3; i++)
+      {
+        Serial.print(rx[i]);
+        Serial.print(",");
+      }
+      // 加速度をとる g
+      rx[0] = (tx[32 * CountH3LIS331DataSetExistInBuff + 10] << 8 | tx[32 * CountH3LIS331DataSetExistInBuff + 11]);
+      rx[1] = (tx[32 * CountH3LIS331DataSetExistInBuff + 12] << 8 | tx[32 * CountH3LIS331DataSetExistInBuff + 13]);
+      rx[2] = (tx[32 * CountH3LIS331DataSetExistInBuff + 14] << 8 | tx[32 * CountH3LIS331DataSetExistInBuff + 15]);
+      for (int i = 0; i < 3; i++)
+      {
+        Serial.print(rx[i]);
+        Serial.print(",");
+      }
+      // 角速度をとる
+      rx[0] = (tx[32 * CountH3LIS331DataSetExistInBuff + 16] << 8 | tx[32 * CountH3LIS331DataSetExistInBuff + 17]);
+      rx[1] = (tx[32 * CountH3LIS331DataSetExistInBuff + 18] << 8 | tx[32 * CountH3LIS331DataSetExistInBuff + 19]);
+      rx[2] = (tx[32 * CountH3LIS331DataSetExistInBuff + 20] << 8 | tx[32 * CountH3LIS331DataSetExistInBuff + 21]);
+      for (int i = 0; i < 3; i++)
+      {
+        Serial.print(rx[i]);
+        Serial.print(",");
+      }
+      // 地磁気をとる
+      rx[3] = {};
+      rx[0] = tx[32 * CountH3LIS331DataSetExistInBuff + 22];
+      rx[0] |= ((uint16_t)tx[32 * CountH3LIS331DataSetExistInBuff + 23]) << 8;
+      rx[1] = tx[32 * CountH3LIS331DataSetExistInBuff + 24];
+      rx[1] |= ((uint16_t)tx[32 * CountH3LIS331DataSetExistInBuff + 25]) << 8;
+      rx[2] = tx[32 * CountH3LIS331DataSetExistInBuff + 26];
+      rx[2] |= ((uint16_t)tx[32 * CountH3LIS331DataSetExistInBuff + 27]) << 8;
+      for (int i = 0; i < 3; i++)
+      {
+        Serial.print(rx[i]);
+        Serial.print(",");
+      }
+      // 気圧をとる
+      Serial.print(tx[32 * CountH3LIS331DataSetExistInBuff + 30] << 16 | tx[32 * CountH3LIS331DataSetExistInBuff + 29] << 8 | tx[32 * CountH3LIS331DataSetExistInBuff + 28]);
+
+      Serial.print("\n");
+      CountH3LIS331DataSetExistInBuff_READ++;
+      if (CountH3LIS331DataSetExistInBuff_READ == 8)
+      {
+        H3LIS331FlashLatestAddress_READ += 0x100;
+        CountH3LIS331DataSetExistInBuff_READ = 0;
       }
     }
   }
