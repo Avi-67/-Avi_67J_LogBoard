@@ -77,7 +77,7 @@ void sendTask(void *pvParameters)
       if (Serial2.available() > 0)
       {
         char a = Serial2.read();
-        if (a == sendChar)
+        if (a == 'j')
         {
           Serial.println("return text");
           sendFlag = false;
