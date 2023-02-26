@@ -158,14 +158,7 @@ void setup()
   xTaskCreateUniversal(logging, "logging", 8192, NULL, 1, &xlogHandle, PRO_CPU_NUM);
 
   // Core0でタスク起動
-  xTaskCreatePinnedToCore(
-      sendTask,
-      "sendTask1",
-      8192,
-      NULL,
-      1,
-      &taskHandle[0],
-      0);
+  xTaskCreatePinnedToCore(sendTask, "sendTask1", 8192, NULL, 1, &taskHandle[0], 0);
 
   SPIFlashLatestAddress = flash1.setFlashAddress();
   Serial.printf("SPIFlashLatestAddress: %d\n", SPIFlashLatestAddress);
