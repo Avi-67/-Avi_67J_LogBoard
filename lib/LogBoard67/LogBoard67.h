@@ -21,6 +21,7 @@ Timer timer;
 
 class LogBoard67
 {
+    bool sendFlag2 = false;
     // SPI_FlashBuffは送る配列
     uint8_t SPI_FlashBuff[256] = {};
 
@@ -39,6 +40,21 @@ public:
 
 void LogBoard67::RoutineWork()
 {
+    if (sendFlag2)
+    {
+        Serial.print(xPortGetCoreID());
+        Serial2.write(sendChar);
+        Serial.println("test");
+        if (Serial2.available() > 0)
+        {
+            char a = Serial2.read();
+            if (a == 'j')
+            {
+                Serial.println("return text");
+                sendFlag2 = false;
+            }
+        }
+    }
     if (SPIFlashLatestAddress >= SPI_FLASH_MAX_ADDRESS)
     {
         Serial.printf("SPIFlashLatestAddress: %u\n", SPIFlashLatestAddress);

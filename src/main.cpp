@@ -51,6 +51,7 @@ bool exitLoop = false;
 
 // Serial2を送るときに使う
 bool sendFlag = false;
+bool logboard67.sendFlag2 = false;
 char sendChar = 'r';
 
 IRAM_ATTR void logging(void *parameters)
@@ -59,8 +60,7 @@ IRAM_ATTR void logging(void *parameters)
   for (;;)
   {
     checker++;
-    vTaskDelayUntil(&xLastWakeTime, loggingPeriod2 / portTICK_PERIOD_MS);
-    ms = 1000Hz
+    vTaskDelayUntil(&xLastWakeTime, loggingPeriod2 / portTICK_PERIOD_MS); // 1ms = 1000Hz
   }
 }
 
@@ -196,7 +196,7 @@ void loop()
         {
         case COMMANDLOG: // 'l'
           // Serial2.write(COMMANDLOG);      // 'l'
-          sendFlag = true;
+          logboard67.sendFlag2 = true;
           sendChar = COMMANDLOG;
           Serial.println("Logging mode");
           while (1)
