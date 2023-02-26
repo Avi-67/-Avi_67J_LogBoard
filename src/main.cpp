@@ -51,7 +51,7 @@ bool exitLoop = false;
 
 // Serial2を送るときに使う
 bool sendFlag = false;
-bool logboard67.sendFlag2 = false;
+// bool logboard67.sendFlag2 = false;
 char sendChar = 'r';
 
 IRAM_ATTR void logging(void *parameters)
@@ -197,7 +197,7 @@ void loop()
         case COMMANDLOG: // 'l'
           // Serial2.write(COMMANDLOG);      // 'l'
           logboard67.sendFlag2 = true;
-          sendChar = COMMANDLOG;
+          logboard67.sendChar2 = COMMANDLOG;
           Serial.println("Logging mode");
           while (1)
           {

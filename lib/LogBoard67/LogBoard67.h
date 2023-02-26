@@ -21,7 +21,7 @@ Timer timer;
 
 class LogBoard67
 {
-    bool sendFlag2 = false;
+
     // SPI_FlashBuffは送る配列
     uint8_t SPI_FlashBuff[256] = {};
 
@@ -36,6 +36,8 @@ class LogBoard67
 
 public:
     void RoutineWork();
+    bool sendFlag2 = false;
+    char sendChar2 = '\0';
 };
 
 void LogBoard67::RoutineWork()
@@ -43,7 +45,7 @@ void LogBoard67::RoutineWork()
     if (sendFlag2)
     {
         Serial.print(xPortGetCoreID());
-        Serial2.write(sendChar);
+        Serial2.write(sendChar2);
         Serial.println("test");
         if (Serial2.available() > 0)
         {
