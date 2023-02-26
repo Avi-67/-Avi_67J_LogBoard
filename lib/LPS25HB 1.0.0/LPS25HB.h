@@ -1,8 +1,9 @@
+// version: 1.0.0
 #pragma once
 
 #ifndef LPS_H
 #define LPS_H
-#include <SPICREATE.h>
+#include <SPICREATE.h> // 2.0.0
 #include <Arduino.h>
 
 #define LPS_Data_Adress_0 0x28

@@ -1,9 +1,9 @@
-// version 1.2.0
+// version: 1.2.0
 #pragma once
 
 #ifndef H3LIS331_H
 #define H3LIS331_H
-#include <SPICREATE.h>
+#include <SPICREATE.h> // 2.0.0
 #include <Arduino.h>
 
 #define H3LIS331_Data_Address 0x28

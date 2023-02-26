@@ -1,3 +1,4 @@
+// version: 2.0.0
 #pragma once
 
 #ifndef SPICREATE_Master

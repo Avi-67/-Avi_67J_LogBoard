@@ -1,9 +1,4 @@
 #include <Arduino.h>
-#include <SPICREATE.h> // 変更済みのものを使用
-#include <S25FL512S.h>
-#include <H3LIS331.h>
-#include <ICM20948_beta.h>
-#include <LPS25HB.h>
 #include <LogBoard67.h>
 
 // ピンの定義
@@ -51,7 +46,6 @@ bool exitLoop = false;
 
 // Serial2を送るときに使う
 bool sendFlag = false;
-// bool logboard67.sendFlag2 = false;
 char sendChar = 'r';
 
 IRAM_ATTR void logging(void *parameters)

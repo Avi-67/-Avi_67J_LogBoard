@@ -1,9 +1,9 @@
-// version 1.2.1
+// version: 1.2.1
 #pragma once
 
 #ifndef SPIFlash_H
 #define SPIFlash_H
-#include <SPICREATE.h>
+#include <SPICREATE.h> // 2.0.0
 #include <Arduino.h>
 
 using namespace arduino::esp32::spi::dma;

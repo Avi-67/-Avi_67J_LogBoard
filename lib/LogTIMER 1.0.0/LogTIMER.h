@@ -1,7 +1,8 @@
+// version: 1.0.0
 #pragma once
 
-#ifndef TIMER_H
-#define TIMER_H
+#ifndef LogTIMER_H
+#define LogTIMER_H
 #include <Arduino.h>
 
 class Timer

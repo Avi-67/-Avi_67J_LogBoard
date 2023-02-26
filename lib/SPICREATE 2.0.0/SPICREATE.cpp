@@ -1,4 +1,5 @@
-#include "SPICREATE.h"
+// version: 2.0.0
+#include "SPICREATE.h" // 2.0.0
 void csSet(spi_transaction_t *t)
 {
     digitalWrite((int)t->user, HIGH);

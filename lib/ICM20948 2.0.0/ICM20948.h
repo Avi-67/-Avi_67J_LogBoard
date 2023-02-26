@@ -1,8 +1,9 @@
+// version: 2.0.0
 #pragma once
 
 #ifndef ICM_H
 #define ICM_H
-#include <SPICREATE.h>
+#include <SPICREATE.h> // 2.0.0
 #include <Arduino.h>
 
 #define ICM_Data_Adress 0x2D   // BANK0
@@ -25,7 +26,7 @@
 #define ICM_USER_BANK2 0b00100000
 #define ICM_USER_BANK3 0b00110000
 
-//#define ICM_2500deg 0x18
+// #define ICM_2500deg 0x18
 
 class ICM
 {

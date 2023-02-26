@@ -1,14 +1,15 @@
+// version: 1.1.0
 #pragma once
 
 #ifndef LogBoard67_H
 #define LogBoard67_H
 #include <Arduino.h>
-#include <SPICREATE.h> // 変更済みのものを使用
-#include <S25FL512S.h>
-#include <H3LIS331.h>
-#include <ICM20948_beta.h>
-#include <LPS25HB.h>
-#include <TIMER.h>
+#include <SPICREATE.h> // 2.0.0
+#include <S25FL512S.h> // 1.2.1
+#include <H3LIS331.h>  // 1.2.0
+#include <ICM20948.h>  // 2.0.0
+#include <LPS25HB.h>   // 1.0.0
+#include <LogTIMER.h>  // 1.0.0
 
 // センサのクラス
 H3LIS331 H3lis331;
@@ -21,7 +22,7 @@ Timer timer;
 
 class LogBoard67
 {
-
+private:
     // SPI_FlashBuffは送る配列
     uint8_t SPI_FlashBuff[256] = {};
 
