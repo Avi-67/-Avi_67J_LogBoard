@@ -59,7 +59,8 @@ IRAM_ATTR void logging(void *parameters)
   for (;;)
   {
     checker++;
-    vTaskDelayUntil(&xLastWakeTime, loggingPeriod2 / portTICK_PERIOD_MS); // 1ms = 1000Hz
+    vTaskDelayUntil(&xLastWakeTime, loggingPeriod2 / portTICK_PERIOD_MS);
+    ms = 1000Hz
   }
 }
 
@@ -187,7 +188,7 @@ void loop()
       sendFlag = true;
       sendChar = COMMANDPREPARATION;
 
-      Serial.println("Preparation mode"); // 1
+      Serial.println("Preparation mode");
       while (1)
       {
         receive = Serial2.read();
@@ -197,7 +198,7 @@ void loop()
           // Serial2.write(COMMANDLOG);      // 'l'
           sendFlag = true;
           sendChar = COMMANDLOG;
-          Serial.println("Logging mode"); // 1
+          Serial.println("Logging mode");
           while (1)
           {
             if (checker > 0)
@@ -237,10 +238,10 @@ void loop()
           {
             if (receive != 'j')
             {
-              // Serial2.write(receive);                // 1
+              // Serial2.write(receive);
               sendFlag = true;
               sendChar = receive;
-              Serial.println("Exit Preparation mode"); // 1
+              Serial.println("Exit Preparation mode");
               exitLoop = true;
             }
           }
