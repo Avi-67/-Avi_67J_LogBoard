@@ -1,6 +1,9 @@
 #include <Arduino.h>
 #include <LogBoard67.h>
 
+uint64_t serialcount = 0;
+#define SERIALCOUNTMAX 10000
+
 // ピンの定義
 #define flashCS 27
 #define SCK1 33
@@ -21,6 +24,7 @@
 #define COMMANDLOG 'l'
 #define COMMANDFINISHSETUP 'r'
 #define COMMANDDELETEDONE 'f'
+#define COMMANDRETURN 'j'
 
 SPICREATE::SPICreate SPIC1;
 SPICREATE::SPICreate SPIC2;
@@ -58,30 +62,30 @@ IRAM_ATTR void logging(void *parameters)
   }
 }
 
-TaskHandle_t taskHandle[2];
+// TaskHandle_t taskHandle[2];
 
-void sendTask(void *pvParameters)
-{
-  while (1)
-  {
-    if (sendFlag)
-    {
-      Serial.print(xPortGetCoreID());
-      Serial2.write(sendChar);
-      Serial.println("test");
-      if (Serial2.available() > 0)
-      {
-        char a = Serial2.read();
-        if (a == 'j')
-        {
-          Serial.println("return text");
-          sendFlag = false;
-        }
-      }
-    }
-    delay(1);
-  }
-}
+// void sendTask(void *pvParameters)
+// {
+//   while (1)
+//   {
+//     if (sendFlag)
+//     {
+//       Serial.print(xPortGetCoreID());
+//       Serial2.write(sendChar);
+//       Serial.println("test");
+//       if (Serial2.available() > 0)
+//       {
+//         char a = Serial2.read();
+//         if (a == 'j')
+//         {
+//           Serial.println("return text");
+//           sendFlag = false;
+//         }
+//       }
+//     }
+//     delay(1);
+//   }
+// }
 
 void setup()
 {
@@ -157,8 +161,8 @@ void setup()
   // logging関数を起動
   xTaskCreateUniversal(logging, "logging", 8192, NULL, 1, &xlogHandle, PRO_CPU_NUM);
 
-  // Core0でタスク起動
-  xTaskCreatePinnedToCore(sendTask, "sendTask1", 8192, NULL, 1, &taskHandle[0], 0);
+  // // Core0でタスク起動
+  // xTaskCreatePinnedToCore(sendTask, "sendTask1", 8192, NULL, 1, &taskHandle[0], 0);
 
   SPIFlashLatestAddress = flash1.setFlashAddress();
   Serial.printf("SPIFlashLatestAddress: %d\n", SPIFlashLatestAddress);
@@ -167,17 +171,44 @@ void setup()
 
 void loop()
 {
+  if (sendFlag)
+  {
+    serialcount++;
+    if (serialcount > SERIALCOUNTMAX)
+    {
+      serialcount = 0;
+      Serial2.write(sendChar);
+      Serial.printf("sendChar1: %c", sendChar);
+      Serial.print("\n");
+    }
+  }
   while (Serial2.available())
   {
-    if (Serial2.read() == COMMANDPREPARATION) // 'p'
+    char pre = Serial2.read();
+    if (pre == COMMANDRETURN)
     {
-      // Serial2.write(COMMANDPREPARATION);  // 'p'
+      Serial.println("return text");
+      sendFlag = false;
+    }
+    if (pre == COMMANDPREPARATION) // 'p'
+    {
       sendFlag = true;
       sendChar = COMMANDPREPARATION;
 
       Serial.println("Preparation mode");
       while (1)
       {
+        if (sendFlag)
+        {
+          serialcount++;
+          if (serialcount > SERIALCOUNTMAX)
+          {
+            serialcount = 0;
+            Serial2.write(sendChar);
+            Serial.printf("sendChar2: %c", sendChar);
+            Serial.print("\n");
+          }
+        }
         receive = Serial2.read();
         switch (receive)
         {
@@ -220,17 +251,18 @@ void loop()
           break;
         case COMMANDPREPARATION: // 'p'
           break;
+        case COMMANDRETURN: // 'j'
+          Serial.println("return text");
+          sendFlag = false;
+          break;
         default:
           if ('a' <= receive && receive <= 'z')
           {
-            if (receive != 'j')
-            {
-              // Serial2.write(receive);
-              sendFlag = true;
-              sendChar = receive;
-              Serial.println("Exit Preparation mode");
-              exitLoop = true;
-            }
+            // Serial2.write(receive);
+            sendFlag = true;
+            sendChar = receive;
+            Serial.println("Exit Preparation mode");
+            exitLoop = true;
           }
           break;
         }
