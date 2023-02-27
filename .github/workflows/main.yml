@@ -10,7 +10,7 @@ jobs:
       - name: clone libraries
         uses: actions/checkout@v3
         with:
-          name: Luftalian/Avi_ESP32_lib
+          repository: Luftalian/Avi_ESP32_lib
           ref: lib
 
       - uses: actions/cache@v3
