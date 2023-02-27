@@ -214,8 +214,8 @@ void loop()
         {
         case COMMANDLOG: // 'l'
           // Serial2.write(COMMANDLOG);      // 'l'
-          logboard67.sendFlag2 = true;
-          logboard67.sendChar2 = COMMANDLOG;
+          sendFlag = true;
+          sendChar = COMMANDLOG;
           Serial.println("Logging mode");
           while (1)
           {
@@ -224,7 +224,24 @@ void loop()
               checker = 0;
               logboard67.RoutineWork();
             }
-            if (Serial2.read() == COMMANDSTOP) // 's'
+            if (sendFlag)
+            {
+              serialcount++;
+              if (serialcount > SERIALCOUNTMAX)
+              {
+                serialcount = 0;
+                Serial2.write(sendChar);
+                Serial.printf("sendChar3: %c", sendChar);
+                Serial.print("\n");
+              }
+            }
+            char pre2 = Serial2.read();
+            if (pre2 == COMMANDRETURN) // 'j'
+            {
+              Serial.println("return text");
+              sendFlag = false;
+            }
+            if (pre2 == COMMANDSTOP) // 's'
             {
               // Serial2.write(COMMANDSTOP); // 's'
               sendFlag = true;
