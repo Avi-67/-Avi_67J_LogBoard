@@ -1,10 +1,6 @@
 #include <Arduino.h>
 #include <LogBoard67.h>
 
-uint64_t serialcount = 0;
-uint64_t serialcount2 = 0;
-#define SERIALCOUNTMAX 10000
-
 // ピンの定義
 #define flashCS 27
 #define SCK1 33
@@ -53,8 +49,6 @@ bool exitLoop = false;
 // Serial2を送るときに使う
 bool sendFlag = false;
 char sendChar = '\0';
-bool sendFlag2 = false;
-char sendChar2 = '\0';
 
 IRAM_ATTR void logging(void *parameters)
 {
@@ -66,14 +60,18 @@ IRAM_ATTR void logging(void *parameters)
   }
 }
 
+unsigned long time_serial1 = 0;
+unsigned long time_serial2 = 0;
+#define SERIALFREQUENCY 500000
+
 void sendSerial2()
 {
   if (sendFlag)
   {
-    serialcount++;
-    if (serialcount > SERIALCOUNTMAX)
+    time_serial2 = micros();
+    if (time_serial2 - time_serial1 > SERIALFREQUENCY)
     {
-      serialcount = 0;
+      time_serial1 = time_serial2;
       Serial2.write(sendChar);
       Serial.printf("sendChar1: %c", sendChar);
       Serial.print("\n");
@@ -85,23 +83,13 @@ void sendTask(void *pvParameters)
 {
   while (1)
   {
-    if (sendFlag2)
-    {
-      serialcount2++;
-      if (serialcount2 > SERIALCOUNTMAX / 100)
-      {
-        serialcount2 = 0;
-        Serial2.write(sendChar2);
-        Serial.printf("sendChar2: %c", sendChar2);
-        Serial.print("\n");
-      }
-    }
+    sendSerial2();
 
     char pre3 = Serial2.read();
     if (pre3 == COMMANDRETURN) // 'j'
     {
       Serial.println("return text");
-      sendFlag2 = false;
+      sendFlag = false;
     }
     vTaskDelay(1);
   }
@@ -178,6 +166,8 @@ void setup()
     Serial.println("ICM20948 is NG");
   }
 
+  time_serial1 = micros();
+
   // logging関数を起動
   xTaskCreateUniversal(logging, "logging", 8192, NULL, 1, &xlogHandle, PRO_CPU_NUM);
 
@@ -240,11 +230,12 @@ void loop()
           Serial.write("Done Recorded");
           break;
         case COMMANDDELETE: // 'd'
-          sendFlag2 = true;
-          sendChar2 = COMMANDDELETE;
+          sendFlag = true;
+          sendChar = COMMANDDELETE;
 
           Serial.println("Delete mode");
           Serial2.write(COMMANDDELETE);
+
           xTaskCreatePinnedToCore(sendTask, "sendTask1", 8192, NULL, 2, &taskHandle, 0);
 
           flash1.erase();
