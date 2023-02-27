@@ -12,6 +12,11 @@ jobs:
         with:
           repository: Luftalian/Avi_ESP32_lib
           path: lib
+      - name: Check the lib repo
+        working-directory: lib
+        run: |
+          pwd
+          ls -la
       - uses: actions/checkout@v3
       - uses: actions/cache@v3
         with:
@@ -27,8 +32,3 @@ jobs:
 
       - name: Build PlatformIO Project
         run: pio run
-      - name: Check the lib repo
-        working-directory: lib
-        run: |
-          pwd
-          ls -la
