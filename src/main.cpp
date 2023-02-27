@@ -2,6 +2,7 @@
 #include <LogBoard67.h>
 
 uint64_t serialcount = 0;
+uint64_t serialcount2 = 0;
 #define SERIALCOUNTMAX 10000
 
 // ピンの定義
@@ -33,11 +34,12 @@ LogBoard67 logboard67;
 
 #define SPIFREQ 5000000
 
-// #define loggingPeriod 2
 #define loggingPeriod2 1
 
 TimerHandle_t thand_test;
 xTaskHandle xlogHandle;
+
+TaskHandle_t taskHandle;
 
 // チェッカー(logging関数でこれを動かす)
 uint8_t checker = 0;
@@ -50,7 +52,9 @@ bool exitLoop = false;
 
 // Serial2を送るときに使う
 bool sendFlag = false;
-char sendChar = 'r';
+char sendChar = '\0';
+bool sendFlag2 = false;
+char sendChar2 = '\0';
 
 IRAM_ATTR void logging(void *parameters)
 {
@@ -62,30 +66,46 @@ IRAM_ATTR void logging(void *parameters)
   }
 }
 
-// TaskHandle_t taskHandle[2];
+void sendSerial2()
+{
+  if (sendFlag)
+  {
+    serialcount++;
+    if (serialcount > SERIALCOUNTMAX)
+    {
+      serialcount = 0;
+      Serial2.write(sendChar);
+      Serial.printf("sendChar1: %c", sendChar);
+      Serial.print("\n");
+    }
+  }
+}
 
-// void sendTask(void *pvParameters)
-// {
-//   while (1)
-//   {
-//     if (sendFlag)
-//     {
-//       Serial.print(xPortGetCoreID());
-//       Serial2.write(sendChar);
-//       Serial.println("test");
-//       if (Serial2.available() > 0)
-//       {
-//         char a = Serial2.read();
-//         if (a == 'j')
-//         {
-//           Serial.println("return text");
-//           sendFlag = false;
-//         }
-//       }
-//     }
-//     delay(1);
-//   }
-// }
+void sendTask(void *pvParameters)
+{
+  while (1)
+  {
+    if (sendFlag2)
+    {
+      serialcount2++;
+      if (serialcount2 > SERIALCOUNTMAX / 100)
+      {
+        serialcount2 = 0;
+        Serial2.write(sendChar2);
+        Serial.printf("sendChar2: %c", sendChar2);
+        Serial.print("\n");
+      }
+    }
+
+    char pre3 = Serial2.read();
+    if (pre3 == COMMANDRETURN) // 'j'
+    {
+      Serial.println("return text");
+      sendFlag2 = false;
+    }
+    vTaskDelay(1);
+  }
+}
 
 void setup()
 {
@@ -161,59 +181,36 @@ void setup()
   // logging関数を起動
   xTaskCreateUniversal(logging, "logging", 8192, NULL, 1, &xlogHandle, PRO_CPU_NUM);
 
-  // // Core0でタスク起動
-  // xTaskCreatePinnedToCore(sendTask, "sendTask1", 8192, NULL, 1, &taskHandle[0], 0);
-
   SPIFlashLatestAddress = flash1.setFlashAddress();
   Serial.printf("SPIFlashLatestAddress: %d\n", SPIFlashLatestAddress);
-  Serial2.write(COMMANDFINISHSETUP); // 'r'
+  sendFlag = true;
+  sendChar = COMMANDFINISHSETUP; // 'r'
 }
 
 void loop()
 {
-  if (sendFlag)
-  {
-    serialcount++;
-    if (serialcount > SERIALCOUNTMAX)
-    {
-      serialcount = 0;
-      Serial2.write(sendChar);
-      Serial.printf("sendChar1: %c", sendChar);
-      Serial.print("\n");
-    }
-  }
+  sendSerial2();
   while (Serial2.available())
   {
     char pre = Serial2.read();
-    if (pre == COMMANDRETURN)
+    switch (pre)
     {
+    case COMMANDRETURN: // 'j'
       Serial.println("return text");
       sendFlag = false;
-    }
-    if (pre == COMMANDPREPARATION) // 'p'
-    {
+      break;
+    case COMMANDPREPARATION: // 'p'
       sendFlag = true;
       sendChar = COMMANDPREPARATION;
 
       Serial.println("Preparation mode");
       while (1)
       {
-        if (sendFlag)
-        {
-          serialcount++;
-          if (serialcount > SERIALCOUNTMAX)
-          {
-            serialcount = 0;
-            Serial2.write(sendChar);
-            Serial.printf("sendChar2: %c", sendChar);
-            Serial.print("\n");
-          }
-        }
+        sendSerial2();
         receive = Serial2.read();
         switch (receive)
         {
         case COMMANDLOG: // 'l'
-          // Serial2.write(COMMANDLOG);      // 'l'
           sendFlag = true;
           sendChar = COMMANDLOG;
           Serial.println("Logging mode");
@@ -224,17 +221,7 @@ void loop()
               checker = 0;
               logboard67.RoutineWork();
             }
-            if (sendFlag)
-            {
-              serialcount++;
-              if (serialcount > SERIALCOUNTMAX)
-              {
-                serialcount = 0;
-                Serial2.write(sendChar);
-                Serial.printf("sendChar3: %c", sendChar);
-                Serial.print("\n");
-              }
-            }
+            sendSerial2();
             char pre2 = Serial2.read();
             if (pre2 == COMMANDRETURN) // 'j'
             {
@@ -243,7 +230,6 @@ void loop()
             }
             if (pre2 == COMMANDSTOP) // 's'
             {
-              // Serial2.write(COMMANDSTOP); // 's'
               sendFlag = true;
               sendChar = COMMANDSTOP;
               Serial.println("Stop logging");
@@ -251,16 +237,20 @@ void loop()
               break;
             }
           }
-          Serial.write("Done Recorded:");
-          Serial.write(timer.Gettime_record());
+          Serial.write("Done Recorded");
           break;
         case COMMANDDELETE: // 'd'
-          // Serial2.write(COMMANDDELETE); // 'd'
-          sendFlag = true;
-          sendChar = COMMANDDELETE;
+          sendFlag2 = true;
+          sendChar2 = COMMANDDELETE;
+
           Serial.println("Delete mode");
+          Serial2.write(COMMANDDELETE);
+          xTaskCreatePinnedToCore(sendTask, "sendTask1", 8192, NULL, 2, &taskHandle, 0);
+
           flash1.erase();
-          // Serial2.write(COMMANDDELETEDONE); // 'f'
+
+          vTaskDelete(taskHandle);
+
           sendFlag = true;
           sendChar = COMMANDDELETEDONE;
           SPIFlashLatestAddress = 0x000;
@@ -275,7 +265,6 @@ void loop()
         default:
           if ('a' <= receive && receive <= 'z')
           {
-            // Serial2.write(receive);
             sendFlag = true;
             sendChar = receive;
             Serial.println("Exit Preparation mode");
@@ -289,6 +278,9 @@ void loop()
           break;
         }
       }
+      break;
+    default:
+      break;
     }
   }
 }
