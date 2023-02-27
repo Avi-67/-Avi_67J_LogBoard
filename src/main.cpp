@@ -1,5 +1,6 @@
 #include <Arduino.h>
 #include <LogBoard67.h>
+#include <Log67Serial.h>
 
 // ピンの定義
 #define flashCS 27
@@ -46,10 +47,6 @@ char receive;
 // Serial2で使う
 bool exitLoop = false;
 
-// Serial2を送るときに使う
-bool sendFlag = false;
-char sendChar = '\0';
-
 IRAM_ATTR void logging(void *parameters)
 {
   portTickType xLastWakeTime = xTaskGetTickCount();
@@ -60,40 +57,7 @@ IRAM_ATTR void logging(void *parameters)
   }
 }
 
-unsigned long time_serial1 = 0;
-unsigned long time_serial2 = 0;
-#define SERIALFREQUENCY 500000
-
-void sendSerial2()
-{
-  if (sendFlag)
-  {
-    time_serial2 = micros();
-    if (time_serial2 - time_serial1 > SERIALFREQUENCY)
-    {
-      time_serial1 = time_serial2;
-      Serial2.write(sendChar);
-      Serial.printf("sendChar1: %c", sendChar);
-      Serial.print("\n");
-    }
-  }
-}
-
-void sendTask(void *pvParameters)
-{
-  while (1)
-  {
-    sendSerial2();
-
-    char pre3 = Serial2.read();
-    if (pre3 == COMMANDRETURN) // 'j'
-    {
-      Serial.println("return text");
-      sendFlag = false;
-    }
-    vTaskDelay(1);
-  }
-}
+Log67Serial Log67Serial1;
 
 void setup()
 {
@@ -166,20 +130,20 @@ void setup()
     Serial.println("ICM20948 is NG");
   }
 
-  time_serial1 = micros();
+  Log67Serial1.setup();
 
   // logging関数を起動
   xTaskCreateUniversal(logging, "logging", 8192, NULL, 1, &xlogHandle, PRO_CPU_NUM);
 
   SPIFlashLatestAddress = flash1.setFlashAddress();
   Serial.printf("SPIFlashLatestAddress: %d\n", SPIFlashLatestAddress);
-  sendFlag = true;
-  sendChar = COMMANDFINISHSETUP; // 'r'
+
+  Log67Serial1.setCommand(COMMANDFINISHSETUP);
 }
 
 void loop()
 {
-  sendSerial2();
+  Log67Serial1.sendSerial2();
   while (Serial2.available())
   {
     char pre = Serial2.read();
@@ -187,22 +151,21 @@ void loop()
     {
     case COMMANDRETURN: // 'j'
       Serial.println("return text");
-      sendFlag = false;
+      Log67Serial1.stopCommand();
       break;
     case COMMANDPREPARATION: // 'p'
-      sendFlag = true;
-      sendChar = COMMANDPREPARATION;
+      Log67Serial1.setCommand(COMMANDPREPARATION);
 
       Serial.println("Preparation mode");
       while (1)
       {
-        sendSerial2();
+        Log67Serial1.sendSerial2();
         receive = Serial2.read();
         switch (receive)
         {
         case COMMANDLOG: // 'l'
-          sendFlag = true;
-          sendChar = COMMANDLOG;
+          Log67Serial1.setCommand(COMMANDLOG);
+
           Serial.println("Logging mode");
           while (1)
           {
@@ -211,17 +174,17 @@ void loop()
               checker = 0;
               logboard67.RoutineWork();
             }
-            sendSerial2();
+            Log67Serial1.sendSerial2();
             char pre2 = Serial2.read();
             if (pre2 == COMMANDRETURN) // 'j'
             {
               Serial.println("return text");
-              sendFlag = false;
+              Log67Serial1.stopCommand();
             }
             if (pre2 == COMMANDSTOP) // 's'
             {
-              sendFlag = true;
-              sendChar = COMMANDSTOP;
+              Log67Serial1.setCommand(COMMANDSTOP);
+
               Serial.println("Stop logging");
               exitLoop = true;
               break;
@@ -230,20 +193,17 @@ void loop()
           Serial.write("Done Recorded");
           break;
         case COMMANDDELETE: // 'd'
-          sendFlag = true;
-          sendChar = COMMANDDELETE;
-
           Serial.println("Delete mode");
           Serial2.write(COMMANDDELETE);
 
-          xTaskCreatePinnedToCore(sendTask, "sendTask1", 8192, NULL, 2, &taskHandle, 0);
+          xTaskCreatePinnedToCore(Log67Serial1.sendTask, "sendTask1", 8192, NULL, 2, &taskHandle, 0);
 
           flash1.erase();
 
           vTaskDelete(taskHandle);
 
-          sendFlag = true;
-          sendChar = COMMANDDELETEDONE;
+          Log67Serial1.setCommand(COMMANDDELETEDONE);
+
           SPIFlashLatestAddress = 0x000;
           exitLoop = true;
           break;
@@ -251,13 +211,13 @@ void loop()
           break;
         case COMMANDRETURN: // 'j'
           Serial.println("return text");
-          sendFlag = false;
+          Log67Serial1.stopCommand();
           break;
         default:
           if ('a' <= receive && receive <= 'z')
           {
-            sendFlag = true;
-            sendChar = receive;
+            Log67Serial1.setCommand(receive);
+
             Serial.println("Exit Preparation mode");
             exitLoop = true;
           }
