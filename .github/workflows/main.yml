@@ -12,6 +12,9 @@ jobs:
         with:
           repository: Luftalian/Avi_ESP32_lib
           path: lib
+      - run: |
+          pwd
+          ls -la
       - name: Check the lib repo
         working-directory: lib
         run: |
