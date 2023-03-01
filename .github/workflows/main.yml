@@ -11,7 +11,7 @@ jobs:
       - name: Clone libraries
         uses: actions/checkout@v3
         with:
-          repository: Luftalian/Avi_ESP32_lib
+          repository: ${{ secrets.my_lib_repository }}
           token: ${{ secrets.my_lib }}
           path: lib
       - run: |
