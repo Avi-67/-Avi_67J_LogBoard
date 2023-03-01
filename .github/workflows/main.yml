@@ -14,15 +14,6 @@ jobs:
           repository: ${{ secrets.my_lib_repository }}
           token: ${{ secrets.my_lib }}
           path: lib
-      - run: |
-          pwd
-          ls -la
-      - name: Check the lib repo
-        working-directory: lib
-        run: |
-          pwd
-          ls -la
-
       - uses: actions/cache@v3
         with:
           path: |
