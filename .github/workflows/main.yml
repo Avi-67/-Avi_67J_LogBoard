@@ -8,6 +8,12 @@ jobs:
 
     steps:
       - uses: actions/checkout@v3
+      - name: Clone libraries
+        uses: actions/checkout@v3
+        with:
+          repository: ${{ secrets.my_lib_repository }}
+          token: ${{ secrets.my_lib }}
+          path: lib
       - uses: actions/cache@v3
         with:
           path: |
@@ -16,7 +22,7 @@ jobs:
           key: ${{ runner.os }}-pio
       - uses: actions/setup-python@v4
         with:
-          python-version: '3.9'
+          python-version: "3.9"
       - name: Install PlatformIO Core
         run: pip install --upgrade platformio
 

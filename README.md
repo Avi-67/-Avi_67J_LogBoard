@@ -1,5 +1,13 @@
 # Avi_67J_LogBoard
 
+## How to develop
+
+1. `git clone https://github.com/Avi-67/Avi_67J_LogBoard`
+2. `cd ./Avi_67J_LogBoard`
+3. `mkdir ./lib`
+4. `cd ./lib`
+5. `git clone https://github.com/Luftalian/Avi_ESP32_lib .`
+
 ## Sensor
 
 - S25FL512S
