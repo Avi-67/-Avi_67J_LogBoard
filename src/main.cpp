@@ -1,10 +1,6 @@
 #include <Arduino.h>
-#include <SPICREATE.h> // 変更済みのものを使用
-#include <S25FL512S.h>
-#include <H3LIS331.h>
-#include <ICM20948_beta.h>
-#include <LPS25HB.h>
 #include <LogBoard67.h>
+#include <Log67Serial.h>
 
 // ピンの定義
 #define flashCS 27
@@ -26,6 +22,7 @@
 #define COMMANDLOG 'l'
 #define COMMANDFINISHSETUP 'r'
 #define COMMANDDELETEDONE 'f'
+#define COMMANDRETURN 'j'
 
 SPICREATE::SPICreate SPIC1;
 SPICREATE::SPICreate SPIC2;
@@ -34,11 +31,12 @@ LogBoard67 logboard67;
 
 #define SPIFREQ 5000000
 
-// #define loggingPeriod 2
 #define loggingPeriod2 1
 
 TimerHandle_t thand_test;
 xTaskHandle xlogHandle;
+
+TaskHandle_t taskHandle;
 
 // チェッカー(logging関数でこれを動かす)
 uint8_t checker = 0;
@@ -58,6 +56,8 @@ IRAM_ATTR void logging(void *parameters)
     vTaskDelayUntil(&xLastWakeTime, loggingPeriod2 / portTICK_PERIOD_MS); // 1ms = 1000Hz
   }
 }
+
+Log67Serial Log67Serial1;
 
 void setup()
 {
@@ -130,30 +130,43 @@ void setup()
     Serial.println("ICM20948 is NG");
   }
 
+  Log67Serial1.setup();
+
   // logging関数を起動
   xTaskCreateUniversal(logging, "logging", 8192, NULL, 1, &xlogHandle, PRO_CPU_NUM);
 
   SPIFlashLatestAddress = flash1.setFlashAddress();
   Serial.printf("SPIFlashLatestAddress: %d\n", SPIFlashLatestAddress);
-  Serial2.write(COMMANDFINISHSETUP); // 'r'
+
+  Log67Serial1.setCommand(COMMANDFINISHSETUP);
 }
 
 void loop()
 {
+  Log67Serial1.sendSerial2();
   while (Serial2.available())
   {
-    if (Serial2.read() == COMMANDPREPARATION) // 'p'
+    char pre = Serial2.read();
+    switch (pre)
     {
-      Serial2.write(COMMANDPREPARATION);  // 'p'
-      Serial.println("Preparation mode"); // 1
+    case COMMANDRETURN: // 'j'
+      Serial.println("return text");
+      Log67Serial1.stopCommand();
+      break;
+    case COMMANDPREPARATION: // 'p'
+      Log67Serial1.setCommand(COMMANDPREPARATION);
+
+      Serial.println("Preparation mode");
       while (1)
       {
+        Log67Serial1.sendSerial2();
         receive = Serial2.read();
         switch (receive)
         {
-        case COMMANDLOG:                  // 'l'
-          Serial2.write(COMMANDLOG);      // 'l'
-          Serial.println("Logging mode"); // 1
+        case COMMANDLOG: // 'l'
+          Log67Serial1.setCommand(COMMANDLOG);
+
+          Serial.println("Logging mode");
           while (1)
           {
             if (checker > 0)
@@ -161,32 +174,51 @@ void loop()
               checker = 0;
               logboard67.RoutineWork();
             }
-            if (Serial2.read() == COMMANDSTOP) // 's'
+            Log67Serial1.sendSerial2();
+            char pre2 = Serial2.read();
+            if (pre2 == COMMANDRETURN) // 'j'
             {
-              Serial2.write(COMMANDSTOP); // 's'
+              Serial.println("return text");
+              Log67Serial1.stopCommand();
+            }
+            if (pre2 == COMMANDSTOP) // 's'
+            {
+              Log67Serial1.setCommand(COMMANDSTOP);
+
               Serial.println("Stop logging");
               exitLoop = true;
               break;
             }
           }
-          Serial.write("Done Recorded:");
-          Serial.write(timer.Gettime_record());
+          Serial.write("Done Recorded");
           break;
-        case COMMANDDELETE:             // 'd'
-          Serial2.write(COMMANDDELETE); // 'd'
+        case COMMANDDELETE: // 'd'
           Serial.println("Delete mode");
+          Serial2.write(COMMANDDELETE);
+
+          xTaskCreatePinnedToCore(Log67Serial1.sendTask, "sendTask1", 8192, NULL, 2, &taskHandle, 0);
+
           flash1.erase();
-          Serial2.write(COMMANDDELETEDONE); // 'f'
+
+          vTaskDelete(taskHandle);
+
+          Log67Serial1.setCommand(COMMANDDELETEDONE);
+
           SPIFlashLatestAddress = 0x000;
           exitLoop = true;
           break;
         case COMMANDPREPARATION: // 'p'
           break;
+        case COMMANDRETURN: // 'j'
+          Serial.println("return text");
+          Log67Serial1.stopCommand();
+          break;
         default:
           if ('a' <= receive && receive <= 'z')
           {
-            Serial2.println(receive);                // 1
-            Serial.println("Exit Preparation mode"); // 1
+            Log67Serial1.setCommand(receive);
+
+            Serial.println("Exit Preparation mode");
             exitLoop = true;
           }
           break;
@@ -197,6 +229,9 @@ void loop()
           break;
         }
       }
+      break;
+    default:
+      break;
     }
   }
 }
